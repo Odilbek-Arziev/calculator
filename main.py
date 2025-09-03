@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+
 
 def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, years=None):
     loan_amount = price - down_payment
@@ -72,23 +74,20 @@ down_payment = st.number_input("Первоначальный взнос ($)", mi
 rate = st.number_input("Годовая ставка (%)", min_value=1.0, step=0.1, value=10.0)
 years = st.number_input("Срок кредита (лет)", min_value=1, step=1, value=10)
 
-# Рассчитываем минимальный и рекомендованный ежемесячный платеж
 loan_amount = price - down_payment
 monthly_rate = rate / 100 / 12
 months = years * 12
-min_payment = round(loan_amount * monthly_rate * 1.01, 2)  # чуть больше процентов
-default_payment = round(loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1), 2)
+default_payment = round(
+    loan_amount * (monthly_rate * (1 + monthly_rate) ** months) / ((1 + monthly_rate) ** months - 1), 2)
 
-st.subheader("Настройка ежемесячного платежа")
 monthly_payment = st.slider(
     "Ежемесячный платёж ($)",
-    min_value=int(min_payment),
-    max_value=int(default_payment*3),
+    min_value=int(loan_amount * monthly_rate * 1.01),
+    max_value=int(default_payment * 3),
     value=int(default_payment),
     step=50
 )
 
-# Автопересчет
 payment, term, overpayment, balances, schedule = mortgage_calculator(
     price, down_payment, rate, monthly_payment=monthly_payment
 )
@@ -105,9 +104,9 @@ if balances:
     st.dataframe(schedule)
 
     st.subheader("💰 Распределение переплаты")
-    total_principal = price - down_payment
     pie_data = pd.DataFrame({
-        "Сумма": [total_principal, overpayment],
-        "Категория": ["Тело кредита", "Переплата процентов"]
+        "Категория": ["Тело кредита", "Переплата процентов"],
+        "Сумма": [price - down_payment, overpayment]
     })
-    st.pyplot(pie_data.plot.pie(y='Сумма', labels=pie_data['Категория'], autopct='%1.1f%%', legend=False).get_figure())
+    fig = px.pie(pie_data, names='Категория', values='Сумма', title='Доля переплаты и основного долга')
+    st.plotly_chart(fig)
