@@ -1,10 +1,12 @@
 import streamlit as st
-import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, years=None):
     loan_amount = price - down_payment
     monthly_rate = annual_rate / 100 / 12
+
+    balances = []
 
     if years is not None:
         months = years * 12
@@ -14,9 +16,8 @@ def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, 
         total_paid = payment * months
         overpayment = round(total_paid - loan_amount, 2)
 
-        # график погашения
+        # график
         balance = loan_amount
-        balances = []
         for _ in range(months):
             interest = balance * monthly_rate
             balance = balance + interest - payment
@@ -31,7 +32,6 @@ def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, 
         balance = loan_amount
         months_needed = 0
         total_paid = 0
-        balances = []
 
         while balance > 0 and months_needed < 1000 * 12:
             interest = balance * monthly_rate
@@ -50,7 +50,7 @@ def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, 
 
 
 # --- Streamlit UI ---
-st.title("🏦 Ипотечный калькулятор с графиком")
+st.title("🏦 Ипотечный калькулятор с графиком (Streamlit-only)")
 
 price = st.number_input("Полная стоимость жилья ($)", min_value=1000, step=1000)
 down_payment = st.number_input("Первоначальный взнос ($)", min_value=0, step=500)
@@ -77,12 +77,7 @@ if st.button("Рассчитать"):
         st.info(f"Срок: **{term}**")
         st.warning(f"Переплата: **{overpayment}$**")
 
-        # график остатка долга
-        st.subheader("📉 График остатка долга")
-        fig, ax = plt.subplots()
-        ax.plot(range(1, len(balances) + 1), balances, label="Остаток долга")
-        ax.set_xlabel("Месяцы")
-        ax.set_ylabel("Остаток ($)")
-        ax.set_title("Динамика погашения кредита")
-        ax.legend()
-        st.pyplot(fig)
+        if balances:
+            st.subheader("📉 График остатка долга")
+            df = pd.DataFrame({"Остаток долга": balances})
+            st.line_chart(df)
