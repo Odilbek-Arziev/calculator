@@ -3,6 +3,10 @@ import pandas as pd
 import plotly.express as px
 
 
+def format_uzs(amount):
+    return f"{int(amount):,}".replace(",", " ")
+
+
 def mortgage_calculator(price, down_payment, annual_rate, monthly_payment=None, years=None):
     loan_amount = price - down_payment
     monthly_rate = annual_rate / 100 / 12
@@ -85,11 +89,13 @@ years_input = st.number_input("Срок кредита (лет)", min_value=1, s
 price_usd = price_input / usd_to_uzs
 down_payment_usd = down_payment_input / usd_to_uzs
 
-monthly_rate = st.number_input("Годовая ставка (%)", min_value=1.0, step=0.1, value=10.0) / 100 / 12
+annual_rate_input = st.number_input("Годовая ставка (%)", min_value=1.0, step=0.1, value=10.0)
+
+monthly_rate = annual_rate_input / 100 / 12
 months_total = years_input * 12
 default_payment = round(
     (price_usd - down_payment_usd) * (monthly_rate * (1 + monthly_rate) ** months_total) / (
-            (1 + monthly_rate) ** months_total - 1), 2
+                (1 + monthly_rate) ** months_total - 1), 2
 )
 min_payment = round((price_usd - down_payment_usd) * monthly_rate * 1.01, 2)
 
@@ -114,15 +120,24 @@ with col2:
 monthly_usd = monthly_input / usd_to_uzs
 
 payment, term, overpayment, balances, schedule = mortgage_calculator(
-    price_usd, down_payment_usd, monthly_rate * 12 * 100, monthly_payment=monthly_usd
+    price_usd, down_payment_usd, annual_rate_input, monthly_payment=monthly_usd
 )
 
-payment_display = round(payment * usd_to_uzs, 2) if payment else 0
-overpayment_display = round(overpayment * usd_to_uzs, 2) if overpayment else 0
-balances_display = [round(b * usd_to_uzs, 2) for b in balances]
-schedule_display = schedule.copy()
-for col in ["Платёж", "Проценты", "Тело кредита", "Остаток долга"]:
-    schedule_display[col] = schedule_display[col] * usd_to_uzs
+if currency == "UZS":
+    payment_display = format_uzs(payment * usd_to_uzs)
+    overpayment_display = format_uzs(overpayment * usd_to_uzs)
+    balances_display = [format_uzs(b * usd_to_uzs) for b in balances]
+    schedule_display = schedule.copy()
+    for col in ["Платёж", "Проценты", "Тело кредита", "Остаток долга"]:
+        schedule_display[col] = schedule_display[col] * usd_to_uzs
+        schedule_display[col] = schedule_display[col].apply(format_uzs)
+else:
+    payment_display = round(payment, 2)
+    overpayment_display = round(overpayment, 2)
+    balances_display = [round(b, 2) for b in balances]
+    schedule_display = schedule.copy()
+    for col in ["Платёж", "Проценты", "Тело кредита", "Остаток долга"]:
+        schedule_display[col] = schedule_display[col].round(2)
 
 st.success(f"Ежемесячный платёж: **{payment_display} {currency}**")
 st.info(f"Срок: **{term}**")
@@ -138,7 +153,8 @@ if balances:
     st.subheader("💰 Распределение переплаты")
     pie_data = pd.DataFrame({
         "Категория": ["Тело кредита", "Переплата процентов"],
-        "Сумма": [price_input - down_payment_input, overpayment_display]
+        "Сумма": [price_input - down_payment_input,
+                  overpayment_display.replace(" ", "") if currency == "UZS" else overpayment_display]
     })
     fig = px.pie(pie_data, names='Категория', values='Сумма', title='Доля переплаты и основного долга')
     st.plotly_chart(fig)
